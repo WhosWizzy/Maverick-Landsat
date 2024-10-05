@@ -1,173 +1,237 @@
 // Initialize the map
-var map = L.map('map').setView([51.505, -0.09], 13);  // Default location is London
+var map = L.map('map').setView([51.505, -0.09], 13);
 
 // Add OpenStreetMap tile layer
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
 }).addTo(map);
 
-// Function to log messages to the custom console box
+// Global variables to store the selected location data
+let selectedData = [];
+let parsedKmlLayers = [];
+let polygonsVisible = true;  // Track whether polygons are currently visible
+
+// Custom logging function
 function logToConsole(message) {
     const consoleBox = document.getElementById('console');
-    consoleBox.innerHTML += message + '<br>';  // Add new messages to the console
-    consoleBox.scrollTop = consoleBox.scrollHeight;  // Scroll to the bottom
+    consoleBox.innerHTML += message + '<br>';
+    consoleBox.scrollTop = consoleBox.scrollHeight;
 }
 
-// Variable to hold parsed KML layers, but don't add them to the map immediately
-var parsedKmlLayers = [];
+// Function to extract PATH and ROW from the description using regular expressions
+function extractPathRowFromDescription(description) {
+    const pathMatch = description.match(/<strong>PATH<\/strong>:\s*([\d.]+)/);
+    const rowMatch = description.match(/<strong>ROW<\/strong>:\s*([\d.]+)/);
 
-// Load KML file without immediately adding to the map
-var kmlLayer = omnivore.kml('WRS-2_bound_world_0.kml')
-    .on('ready', function() {
-        logToConsole('KML file loaded successfully');
+    const path = pathMatch ? parseFloat(pathMatch[1]) : null;
+    const row = rowMatch ? parseFloat(rowMatch[1]) : null;
 
-        // Store KML layer polygons, but don't add them to the map yet
-        kmlLayer.eachLayer(function(layer) {
-            if (layer instanceof L.Polygon) {
-                parsedKmlLayers.push(layer);  // Store the polygon but don't add to the map
-            }
-        });
-    })
-    .on('error', function() {
-        logToConsole('Error loading KML file');
-    });
+    return { path, row };
+}
 
-// On map click, get Path/Row data and filter specific grids based on retrieved data
-map.on('click', function (e) {
-    const lat = e.latlng.lat;
-    const lng = e.latlng.lng;
+// Function to parse KML manually and extract polygons
+function parseKmlFile(kmlText) {
+    const parser = new DOMParser();
+    const kmlDoc = parser.parseFromString(kmlText, 'text/xml');
+    const placemarks = kmlDoc.getElementsByTagName('Placemark');
+    let parsedPolygons = 0;
 
-    logToConsole(`Map clicked at: ${lat}, ${lng}`);  // Log map click location
+    // Iterate through each placemark and extract polygon data
+    for (let i = 0; i < placemarks.length; i++) {
+        const placemark = placemarks[i];
+        const polygon = placemark.getElementsByTagName('Polygon');
 
-    // Display coordinates to the user
-    document.getElementById('location-info').innerHTML = 'Selected Location: ' + lat + ', ' + lng;
+        if (polygon.length > 0) {
+            parsedPolygons++;
+            const coordinatesElement = polygon[0].getElementsByTagName('coordinates')[0];
+            const coordinatesText = coordinatesElement.textContent.trim();
+            const latLngs = coordinatesText.split(' ').map(coord => {
+                const [lng, lat] = coord.split(',').map(Number);
+                return [lat, lng];  // LatLng for Leaflet
+            });
 
-    // Clear previously added grids before adding new ones
-    map.eachLayer(function (layer) {
-        if (layer instanceof L.Polygon) {
-            map.removeLayer(layer);
-        }
-    });
+            // Extract the description field to get PATH and ROW
+            const description = placemark.getElementsByTagName('description')[0]?.textContent || '';
+            const { path, row } = extractPathRowFromDescription(description);
 
-    // Call the backend API to get Path/Row from USGS tool
-    axios.post('/get-path-row', { latitude: lat, longitude: lng })
-        .then(response => {
-            const pathRowData = response.data;  // Array of Path/Row data
-
-            if (pathRowData && pathRowData.length > 0) {
-                logToConsole(`Fetched ${pathRowData.length} Path/Row combinations`);
-
-                // Create a table to display all path/row information
-                let locationInfoTable = `<table border="1">
-                    <thead>
-                        <tr>
-                            <th>Path</th>
-                            <th>Row</th>
-                            <th>L8 Next Acq</th>
-                            <th>L9 Next Acq</th>
-                        </tr>
-                    </thead>
-                    <tbody>`;
-
-                // Clear addedGrids before processing
-                addedGrids = {};
-
-                // Loop through each Path/Row and filter the KML layer
-                pathRowData.forEach((data) => {
-                    locationInfoTable += `
-                        <tr>
-                            <td>${data.path}</td>
-                            <td>${data.row}</td>
-                            <td>${data.L8NextAcq}</td>
-                            <td>${data.L9NextAcq}</td>
-                        </tr>
-                    `;
-
-                    // Log each Path/Row for debugging
-                    logToConsole(`Path: ${data.path}, Row: ${data.row}`);
-
-                    // Construct a unique key for each path/row
-                    const key = `${data.path}-${data.row}`;
-
-                    // Filter the KML layer for the specific Path/Row polygon and display it
-                    if (!addedGrids[key] && kmlLayer) {
-                        addedGrids[key] = true;  // Mark this path/row as added
-
-                        kmlLayer.eachLayer(function (layer) {
-                            if (layer instanceof L.Polygon && layer.feature && layer.feature.properties) {
-                                const path = layer.feature.properties.PATH;
-                                const row = layer.feature.properties.ROW;
-
-                                // Check if the polygon matches the Path/Row returned by the backend
-                                if (path == data.path && row == data.row) {
-                                    logToConsole(`Displaying grid for Path: ${data.path}, Row: ${data.row}`);
-                                    map.addLayer(layer);  // Add the filtered polygon to the map
-                                }
-                            }
-                        });
-                    } else {
-                        logToConsole(`Grid for Path: ${data.path}, Row: ${data.row} already added`);
-                    }
-                });
-
-                locationInfoTable += `</tbody></table>`;
-                document.getElementById('location-info').innerHTML += locationInfoTable;
-            } else {
-                document.getElementById('location-info').innerHTML += '<br>No Path/Row data available.';
-                logToConsole('No Path/Row data found.');
-            }
-        })
-        .catch(error => {
-            logToConsole('Error fetching Path/Row: ' + error);  // Log error
-            document.getElementById('location-info').innerHTML += `<br>Error fetching Path/Row`;
-        });
-
-    // Create a 3x3 grid of Landsat pixels and zoom to the grid
-    createGrid(lat, lng);
-});
-
-// Function to create the 3x3 grid of Landsat pixels and zoom to it
-function createGrid(lat, lng) {
-    const pixelSize = 0.00027;  // Approximate size of a Landsat pixel in degrees (~30m)
-    var minLat = lat, maxLat = lat;
-    var minLng = lng, maxLng = lng;
-
-    for (let i = -1; i <= 1; i++) {
-        for (let j = -1; j <= 1; j++) {
-            const bounds = [
-                [lat + i * pixelSize, lng + j * pixelSize],
-                [lat + (i + 1) * pixelSize, lng + j * pixelSize],
-                [lat + (i + 1) * pixelSize, lng + (j + 1) * pixelSize],
-                [lat + i * pixelSize, lng + (j + 1) * pixelSize]
-            ];
-
-            // Create a polygon representing the pixel and add it to the map
-            L.polygon(bounds, { color: 'blue' }).addTo(map);
-
-            minLat = Math.min(minLat, lat + i * pixelSize);
-            maxLat = Math.max(maxLat, lat + (i + 1) * pixelSize);
-            minLng = Math.min(minLng, lng + j * pixelSize);
-            maxLng = Math.max(maxLng, lng + (j + 1) * pixelSize);
+            // Create a Leaflet polygon and store it along with PATH/ROW
+            const leafletPolygon = L.polygon(latLngs, { color: 'blue' });
+            leafletPolygon.feature = {
+                properties: {
+                    PATH: path,
+                    ROW: row,
+                    description: description
+                }
+            };
+            parsedKmlLayers.push(leafletPolygon);
         }
     }
 
-    const gridBounds = [[minLat, minLng], [maxLat, maxLng]];
-    logToConsole('Grid Bounds: ' + JSON.stringify(gridBounds));
-
-    map.setView([lat, lng], 16);  // Set zoom level to 16
-    map.fitBounds(gridBounds, { padding: [50, 50] });
+    logToConsole(`Parsed ${parsedPolygons} polygons from KML manually.`);
 }
 
-// Check if the point is within a Landsat scene polygon
-function isPointInScene(lat, lng, geoJsonLayer) {
-    const point = L.latLng(lat, lng);
-    let isInScene = false;
+// Function to load KML file and trigger parsing
+function loadKmlFile(kmlUrl) {
+    fetch(kmlUrl)
+        .then(response => response.text())
+        .then(kmlText => {
+            logToConsole('KML file loaded successfully.');
+            parseKmlFile(kmlText);
 
-    geoJsonLayer.eachLayer(function(layer) {
-        if (layer instanceof L.Polygon && layer.getBounds().contains(point)) {
-            isInScene = true;
+            // Now add all polygons to the map for display
+            parsedKmlLayers.forEach(layer => {
+                layer.addTo(map);
+            });
+
+            logToConsole(`Added ${parsedKmlLayers.length} polygons to the map.`);
+        })
+        .catch(error => {
+            logToConsole('Error loading KML file.');
+            console.error('KML Fetch Error:', error);
+        });
+}
+
+// Handle map click event to capture lat/lng/path/row
+map.on('click', function(e) {
+    const lat = e.latlng.lat;
+    const lng = e.latlng.lng;
+    let foundMatch = false;
+
+    // Reset previous selected data
+    selectedData = [];
+
+    logToConsole(`Map clicked at: Latitude: ${lat}, Longitude: ${lng}`);
+    document.getElementById('location-info').innerHTML = `Selected Location: Latitude: ${lat}, Longitude: ${lng}`;
+
+    // Check if the clicked point is inside any of the polygons
+    parsedKmlLayers.forEach(function(layer, index) {
+        if (layer.getBounds().contains([lat, lng])) {
+            foundMatch = true;
+            const path = layer.feature.properties.PATH;
+            const row = layer.feature.properties.ROW;
+
+            logToConsole(`Point inside polygon ${index + 1} - Path: ${path}, Row: ${row}`);
+            document.getElementById('location-info').innerHTML += `<br>Inside polygon ${index + 1} - Path: ${path}, Row: ${row}`;
+
+            // Store each path/row combination as a separate object in selectedData array
+            selectedData.push({ latitude: lat, longitude: lng, path: path, row: row });
         }
     });
 
-    return isInScene;
+    if (!foundMatch) {
+        logToConsole('No matching polygon found for this location.');
+        document.getElementById('location-info').innerHTML += '<br>No matching polygon found.';
+    }
+});
+
+// Function to toggle polygon visibility
+function togglePolygons() {
+    if (polygonsVisible) {
+        // Hide polygons
+        parsedKmlLayers.forEach(layer => {
+            map.removeLayer(layer);
+        });
+        document.getElementById('toggle-polygons').textContent = 'Show Polygons';
+        logToConsole('Polygons hidden.');
+    } else {
+        // Show polygons
+        parsedKmlLayers.forEach(layer => {
+            map.addLayer(layer);
+        });
+        document.getElementById('toggle-polygons').textContent = 'Hide Polygons';
+        logToConsole('Polygons shown.');
+    }
+    polygonsVisible = !polygonsVisible;  // Toggle the visibility flag
 }
+
+// Function to save data via API
+function saveData() {
+    if (selectedData.length === 0) {
+        logToConsole('No location selected.');
+        return;
+    }
+
+    // Iterate through each selected path/row combination and save it
+    selectedData.forEach(data => {
+        fetch('/save-data', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(res => {
+            if (res.success) {
+                logToConsole(`Data saved successfully! ID: ${res.id}`);
+            } else {
+                logToConsole(`Failed to save data: ${res.error}`);
+            }
+        })
+        .catch(error => {
+            logToConsole(`Error: ${error}`);
+        });
+    });
+}
+
+// Load and display the saved history (all saved lat/lng pairs)
+function loadHistory() {
+    fetch('/history')
+        .then(response => response.json())
+        .then(data => {
+            const historyList = document.getElementById('history-list');
+            historyList.innerHTML = '';  // Clear the existing list
+
+            // Populate the list with saved lat/lng pairs
+            data.forEach(entry => {
+                const li = document.createElement('li');
+                li.textContent = `Lat: ${entry.latitude}, Lng: ${entry.longitude}`;
+                li.dataset.latitude = entry.latitude;
+                li.dataset.longitude = entry.longitude;
+
+                // Add a click event to fetch path/row data for the clicked lat/lng
+                li.addEventListener('click', () => {
+                    fetchPathRow(entry.latitude, entry.longitude);
+                });
+
+                historyList.appendChild(li);
+            });
+        })
+        .catch(error => {
+            logToConsole(`Error loading history: ${error}`);
+        });
+}
+
+// Fetch all path/row data for a given latitude/longitude
+function fetchPathRow(latitude, longitude) {
+    fetch('/get-path-row', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ latitude, longitude })
+    })
+    .then(response => response.json())
+    .then(data => {
+        const pathRowInfo = document.getElementById('path-row-info');
+        pathRowInfo.innerHTML = `<h4>Path/Row for Lat: ${latitude}, Lng: ${longitude}</h4>`;
+        data.forEach(row => {
+            pathRowInfo.innerHTML += `Path: ${row.path}, Row: ${row.row}<br>`;
+        });
+    })
+    .catch(error => {
+        logToConsole(`Error fetching path/row data: ${error}`);
+    });
+}
+
+// Add event listener to toggle button
+document.getElementById('toggle-polygons').addEventListener('click', togglePolygons);
+
+// Add event listener to save button
+document.getElementById('save-data').addEventListener('click', saveData);
+
+// Add event listener to load history button
+document.getElementById('load-history').addEventListener('click', loadHistory);
+
+// Load the KML file
+loadKmlFile('WRS-2_bound_world_0.kml');
