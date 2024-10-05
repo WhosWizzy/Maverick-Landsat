@@ -39,11 +39,15 @@ map.on('click', function(e) {
     // Check if the clicked point is within a Landsat scene
     if (isPointInScene(lat, lng, kmlLayer)) {
         alert('This location is within a Landsat scene!');
+        
         // Zoom to the scene boundary or highlight it
         kmlLayer.eachLayer(function(layer) {
             if (layer instanceof L.Polygon && layer.getBounds().contains(L.latLng(lat, lng))) {
                 console.log('Zooming to scene boundary...');
-                map.fitBounds(layer.getBounds(), { padding: [50, 50] });  // Added padding for better view
+                map.fitBounds(layer.getBounds(), { padding: [50, 50] });
+
+                // Stop zooming further once we find the first polygon
+                return;  // Exit from the function once zoom is triggered
             }
         });
     } else {
