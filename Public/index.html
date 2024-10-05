@@ -3,20 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Define Target Location with OSM and Landsat</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-    <link rel="stylesheet" href="style.css">  <!-- Link to the external CSS file -->
-    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js"></script>
-	<script src="https://unpkg.com/leaflet-omnivore@0.3.4/leaflet-omnivore.min.js"></script>
+    <title>Save Coordinates</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <style>
+        #map { height: 600px; }
+        #console { border: 1px solid #ccc; padding: 10px; height: 100px; overflow-y: auto; }
+        #location-info { margin-top: 10px; }
+        #toggle-polygons, #save-data, #load-history { margin-top: 10px; padding: 5px 10px; }
+        #history { margin-top: 20px; }
+    </style>
 </head>
 <body>
+    <div id="map"></div>
+    <div id="console"></div>
+    <div id="location-info"></div>
+    <button id="toggle-polygons">Hide Polygons</button>
+    <button id="save-data">Save Data</button>
+    <button id="load-history">Load History</button>
+    
+    <div id="history">
+        <h3>Saved Locations (History)</h3>
+        <ul id="history-list"></ul>  <!-- List for displaying saved lat/lng -->
+        <div id="path-row-info"></div> <!-- Display path/row for clicked lat/lng -->
+    </div>
 
-<div id="map"></div>
-<div id="location-info"></div>
-<div id="console"></div> <!-- This is the fixed console box -->
-
-<script src="main.js"></script>
-
+    <!-- Include external JavaScript file -->
+    <script src="app.js"></script>
 </body>
 </html>
