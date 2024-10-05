@@ -29,6 +29,7 @@ let selectedData = [];
 let selectedLocations = []; // For selected history locations (checkbox)
 let parsedKmlLayers = [];
 let polygonsVisible = false;  // By default, polygons are hidden
+let gridData = []; // Store grid data for the 3x3 grid
 
 // Custom logging function
 function logToConsole(message) {
@@ -104,6 +105,104 @@ function loadKmlFile(kmlUrl) {
         });
 }
 
+// Function to create the 3x3 grid of Landsat pixels and display it in a 3x3 table
+function createGrid(lat, lng) {
+    const pixelSize = 0.00027;  // Approximate size of a Landsat pixel in degrees (~30m)
+    let minLat = lat, maxLat = lat;
+    let minLng = lng, maxLng = lng;
+    gridData = [];  // Clear the grid data
+
+    // Clear the current grid info in the panel
+    document.getElementById('location-info').innerHTML = '';
+
+    // Create a table element for the 3x3 grid
+    const gridTable = document.createElement('table');
+    gridTable.setAttribute('id', 'grid-table');  // Optional for styling
+
+    // Loop to create the 3x3 grid
+    for (let i = -1; i <= 1; i++) {
+        const row = document.createElement('tr');  // Create a new table row
+
+        for (let j = -1; j <= 1; j++) {
+            const cell = document.createElement('td');  // Create a new table cell
+
+            const bounds = [
+                [lat + i * pixelSize, lng + j * pixelSize],
+                [lat + (i + 1) * pixelSize, lng + j * pixelSize],
+                [lat + (i + 1) * pixelSize, lng + (j + 1) * pixelSize],
+                [lat + i * pixelSize, lng + (j + 1) * pixelSize]
+            ];
+
+            // Fetch the path and row for each grid pixel (simulating from stored data)
+            const { path, row: rowNum } = getPathRowForCoordinates(lat + i * pixelSize, lng + j * pixelSize);
+
+            // Store grid metadata for later saving
+            gridData.push({
+                latitude: lat + i * pixelSize,
+                longitude: lng + j * pixelSize,
+                path: path,
+                row: rowNum
+            });
+
+            // Set the cell content with path and row data
+            const isTarget = i === 0 && j === 0 ? "(Target)" : "";  // Mark the central pixel
+            cell.innerHTML = `Pixel ${i + 2},${j + 2} <br>Path: ${path} <br>Row: ${rowNum} ${isTarget}`;
+
+            // Add the cell to the row
+            row.appendChild(cell);
+        }
+
+        // Add the row to the table
+        gridTable.appendChild(row);
+    }
+
+    // Append the grid table to the location info section
+    document.getElementById('location-info').appendChild(gridTable);
+
+    // Zoom to the 3x3 grid on the map
+    const gridBounds = [[minLat, minLng], [maxLat, maxLng]];
+    map.fitBounds(gridBounds, { padding: [50, 50] });
+}
+
+// Function to get path and row for given coordinates (use your own existing logic)
+function getPathRowForCoordinates(lat, lng) {
+    // Simulating path/row retrieval; replace this with your actual logic to get path/row
+    return { path: Math.floor(Math.random() * 200), row: Math.floor(Math.random() * 100) };
+}
+
+// Function to save the grid data when the user clicks the Save button
+function saveGridData() {
+    const name = document.getElementById('location-name').value;
+    if (!name) {
+        logToConsole('Please enter a name for this location.');
+        return;
+    }
+
+    // Iterate through each grid cell and save its metadata
+    gridData.forEach(data => {
+        data.name = name;  // Add the custom name
+
+        fetch('/save-data', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(res => {
+            if (res.success) {
+                logToConsole(`Data saved successfully! ID: ${res.id}`);
+            } else {
+                logToConsole(`Failed to save data: ${res.error}`);
+            }
+        })
+        .catch(error => {
+            logToConsole(`Error: ${error}`);
+        });
+    });
+}
+
 // Handle map click event to capture lat/lng/path/row
 map.on('click', function(e) {
     const lat = e.latlng.lat;
@@ -115,6 +214,8 @@ map.on('click', function(e) {
 
     logToConsole(`Map clicked at: Latitude: ${lat}, Longitude: ${lng}`);
     document.getElementById('location-info').innerHTML = `Selected Location: Latitude: ${lat}, Longitude: ${lng}`;
+    
+    createGrid(lat, lng);
 
     // Check if the clicked point is inside any of the polygons
     parsedKmlLayers.forEach(function(layer, index) {
