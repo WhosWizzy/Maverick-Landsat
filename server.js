@@ -1,100 +1,77 @@
 const express = require('express');
-const puppeteer = require('puppeteer');
-const cors = require('cors');
+const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
-
 const app = express();
-const port = 3000;
+const PORT = 3000;
 
-// Middleware to parse incoming JSON requests
+// Middleware to parse JSON requests
 app.use(express.json());
 
-// Use CORS to handle cross-origin requests
-app.use(cors());
-
-// Serve static files (HTML, CSS, JS)
+// Serve static files from the "public" directory
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Endpoint to get Path/Row from USGS tool
-app.post('/get-path-row', async (req, res) => {
-    const { latitude, longitude } = req.body;
-
-    try {
-        const pathRowData = await getPathRowForLocation(latitude, longitude);
-        res.json(pathRowData);  // Send the Path/Row data back to the client
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to fetch Path/Row' });
+// Initialize SQLite database
+let db = new sqlite3.Database('./coordinates.db', (err) => {
+    if (err) {
+        console.error('Error opening database: ' + err.message);
+    } else {
+        console.log('Connected to SQLite database.');
+        db.run(`
+            CREATE TABLE IF NOT EXISTS coordinates (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                latitude REAL,
+                longitude REAL,
+                path INTEGER,
+                row INTEGER
+            )
+        `);
     }
 });
 
-// Function to scrape Path/Row from USGS tool using Puppeteer
-async function getPathRowForLocation(lat, lon) {
-    const url = 'https://landsat.usgs.gov/landsat_acq#convertPathRow';  // Example URL
-
-    // Launch Puppeteer
-    const browser = await puppeteer.launch({ headless: false });
-    const page = await browser.newPage();
-
-    try {
-        // Navigate to the USGS tool page
-        await page.goto(url, { waitUntil: 'networkidle2' });
-		console.log('Page loaded.');
-		
-
-        // Select the radio button to input latitude/longitude
-		await page.waitForSelector('#llTOpr', { visible: true });
-        await page.click('#llTOpr');
-
-        // Enter latitude and longitude
-        await page.type('#thelat', lat.toString());
-        await page.type('#thelong', lon.toString());
-
-        // Submit the form
-		// Wait for the convert button to be visible
-		await page.waitForSelector('#convert', { visible: true });
-		console.log('Submitting form...');
-        await page.click('#convert',);
-
-        // Wait for the results table to appear
-        console.log('Waiting for the results table...');
-        await page.waitForSelector('#convertTable', { visible: true });
-        console.log('Results table is visible.');
-
-        // Add a delay to ensure everything is loaded
-        console.log('Adding a delay to ensure the table is fully loaded...');
-        //await page.waitForTimeout(3000);  // Wait for 3 seconds before extracting data		
-
-        // Extract Path/Row data from the table
-        const tableData = await page.evaluate(() => {
-            const rows = Array.from(document.querySelectorAll('#convertTableRows tr'));
-            return rows.map(row => {
-                const columns = row.querySelectorAll('td');
-                return {
-                    path: columns[0].innerText,
-                    row: columns[1].innerText,
-                    L8NextAcq: columns[4].innerText,
-                    L9NextAcq: columns[5].innerText
-                };
-            })[0]; // Return the first result
-        });
-
-        if (tableData) {
-            console.log(`Extracted Data: Path: ${tableData.path}, Row: ${tableData.row}`);
-        } else {
-            console.log('No data found in the table.');
-        }
-		
-        await browser.close();
-        return tableData;
-
-    } catch (error) {
-        console.error('Error during scraping:', error);
-        await browser.close();
-        throw error;
+// API to save lat/lng/path/row data to SQLite
+app.post('/save-data', (req, res) => {
+    const { latitude, longitude, path, row } = req.body;
+    
+    if (!latitude || !longitude || !path || !row) {
+        return res.status(400).json({ error: 'Missing data fields.' });
     }
-}
+
+    // Insert data into the SQLite database
+    const query = `INSERT INTO coordinates (latitude, longitude, path, row) VALUES (?, ?, ?, ?)`;
+    db.run(query, [latitude, longitude, path, row], function (err) {
+        if (err) {
+            return res.status(500).json({ error: 'Failed to save data.' });
+        }
+        res.json({ success: true, id: this.lastID });
+    });
+});
+
+// API to get all distinct latitude/longitude pairs (for the history view)
+app.get('/history', (req, res) => {
+    const query = `SELECT DISTINCT latitude, longitude FROM coordinates`;
+
+    db.all(query, [], (err, rows) => {
+        if (err) {
+            return res.status(500).json({ error: 'Failed to retrieve history.' });
+        }
+        res.json(rows);  // Send back all distinct lat/lng pairs
+    });
+});
+
+// API to get all path/row pairs for a given latitude/longitude
+app.post('/get-path-row', (req, res) => {
+    const { latitude, longitude } = req.body;
+
+    const query = `SELECT path, row FROM coordinates WHERE latitude = ? AND longitude = ?`;
+    db.all(query, [latitude, longitude], (err, rows) => {
+        if (err) {
+            return res.status(500).json({ error: 'Failed to retrieve path/row data.' });
+        }
+        res.json(rows);  // Send back all path/row combinations for the given lat/lng
+    });
+});
 
 // Start the server
-app.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}`);
+app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
 });
