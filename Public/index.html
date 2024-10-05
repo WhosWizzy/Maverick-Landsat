@@ -5,32 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Define Target Location with OSM and Landsat</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link rel="stylesheet" href="style.css">  <!-- Link to the external CSS file -->
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js"></script>
 	<script src="https://unpkg.com/leaflet-omnivore@0.3.4/leaflet-omnivore.min.js"></script>
-    <style>
-        #map {
-            height: 500px;
-            width: 100%;
-        }
-
-        #console {
-            background-color: black;
-            color: white;
-            padding: 10px;
-            height: 200px;
-            overflow-y: scroll;
-            width: 100%;
-            box-sizing: border-box;
-            font-family: monospace;
-        }
-    </style>
 </head>
 <body>
 
 <div id="map"></div>
 <div id="location-info"></div>
-<div id="console"></div> <!-- This is the console box -->
+<div id="console"></div> <!-- This is the fixed console box -->
 
 <script src="main.js"></script>
 
