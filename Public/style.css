@@ -1,0 +1,24 @@
+#map {
+    height: 500px;
+    width: 100%;
+}
+
+#console {
+    position: fixed;  /* Fix the console to the bottom of the page */
+    bottom: 0;  /* Align to the bottom */
+    left: 0;  /* Align to the left */
+    width: 100%;  /* Full-width console */
+    background-color: black;
+    color: white;
+    padding: 10px;
+    height: 200px;
+    overflow-y: scroll;
+    box-sizing: border-box;
+    font-family: monospace;
+    z-index: 1000;  /* Make sure it appears on top of other elements */
+}
+
+/* Add some margin to prevent the map from overlapping with the console */
+body {
+    margin-bottom: 220px;  /* Extra space at the bottom so the console doesn't overlap content */
+}
