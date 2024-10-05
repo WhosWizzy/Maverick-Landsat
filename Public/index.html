@@ -5,30 +5,50 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Save Coordinates</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+    <link rel="stylesheet" href="styles.css"> <!-- Link to external CSS file -->
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <style>
-        #map { height: 600px; }
-        #console { border: 1px solid #ccc; padding: 10px; height: 100px; overflow-y: auto; }
-        #location-info { margin-top: 10px; }
-        #toggle-polygons, #save-data, #load-history { margin-top: 10px; padding: 5px 10px; }
-        #history { margin-top: 20px; }
-    </style>
 </head>
 <body>
-    <div id="map"></div>
-    <div id="console"></div>
-    <div id="location-info"></div>
-    <button id="toggle-polygons">Hide Polygons</button>
-    <button id="save-data">Save Data</button>
-    <button id="load-history">Load History</button>
-    
-    <div id="history">
-        <h3>Saved Locations (History)</h3>
-        <ul id="history-list"></ul>  <!-- List for displaying saved lat/lng -->
-        <div id="path-row-info"></div> <!-- Display path/row for clicked lat/lng -->
+    <!-- Main container that holds the map, log, and info/saves sections -->
+    <div id="main-container">
+        <!-- Map section -->
+        <div id="map-container">
+            <div id="map"></div>
+        </div>
+
+        <!-- Log section -->
+        <div id="log-container">
+            <div id="console"></div>
+        </div>
+
+        <!-- Info and Saves section -->
+        <div id="info-saves-container">
+            <div id="location-info"></div>
+
+            <!-- Input for naming location -->
+            <div class="controls">
+                <input type="text" id="location-name" placeholder="Enter a name for this location">
+                <!-- Buttons in one row -->
+                <div class="button-group">
+                    <button id="toggle-polygons">Show Polygons</button>
+                    <button id="save-data">Save Data</button>
+                    <button id="load-history">Load History</button>
+                    <button id="clear-all" style="display: none;">Clear All</button>
+                </div>
+            </div>
+            
+            <div id="history">
+                <h3>Saved Locations (History)</h3>
+                <ul id="history-list"></ul>
+                <button id="delete-btn" style="display:none;">Delete Selected</button>
+                <button id="pin-btn" style="display:none;">Pin Selected</button>
+                <button id="view-path-btn" style="display:none;">View Path/Row</button>
+                <div id="path-row-info"></div> <!-- Area to display path/row data -->
+            </div>
+        </div>
     </div>
 
     <!-- Include external JavaScript file -->
-    <script src="app.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
