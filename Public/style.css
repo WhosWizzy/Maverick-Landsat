@@ -1,24 +1,100 @@
-#map {
-    height: 500px;
-    width: 100%;
-}
-
-#console {
-    position: fixed;  /* Fix the console to the bottom of the page */
-    bottom: 0;  /* Align to the bottom */
-    left: 0;  /* Align to the left */
-    width: 100%;  /* Full-width console */
-    background-color: black;
-    color: white;
+/* Main container to hold all elements */
+#main-container {
+    display: grid;
+    grid-template-columns: 2fr 1fr;  /* More space for the map, 2/3 of the width for the map */
+    grid-template-rows: 1fr auto;    /* Grid rows, 1fr for map and log takes the remaining height */
+    gap: 10px;                        /* Gap between sections */
+    height: 100vh;                    /* Full viewport height */
     padding: 10px;
-    height: 200px;
-    overflow-y: scroll;
-    box-sizing: border-box;
-    font-family: monospace;
-    z-index: 1000;  /* Make sure it appears on top of other elements */
 }
 
-/* Add some margin to prevent the map from overlapping with the console */
-body {
-    margin-bottom: 220px;  /* Extra space at the bottom so the console doesn't overlap content */
+/* Map container with increased height */
+#map-container {
+    grid-row: 1;
+    grid-column: 1;
+    border: 1px solid #ccc;
+    background-color: #f5f5f5;
+    height: 100%;   /* Map will take full height */
+}
+
+#map {
+    width: 100%;
+    height: 100%;  /* Make the map take the full container height */
+}
+
+/* Log container with auto height */
+#log-container {
+    grid-row: 2;
+    grid-column: 1;
+    background-color: #f9f9f9;
+    border: 1px solid #ccc;
+    overflow-y: auto;
+    padding: 10px;
+    max-height: 200px;  /* Set max height for log */
+}
+
+/* Info and save controls container (Right side) */
+#info-saves-container {
+    grid-row: 1 / 3; /* This spans both rows on the right */
+    grid-column: 2;
+    background-color: #f9f9f9;
+    border: 1px solid #ccc;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+/* History section */
+#history {
+    margin-top: 20px;
+}
+
+/* General button styles */
+#toggle-polygons, #save-data, #load-history, #clear-all, #delete-btn, #pin-btn, #view-path-btn {
+    margin-top: 10px;
+    padding: 8px 15px;
+    background-color: #f0f0f0;
+    border: 1px solid #ccc;
+    cursor: pointer;
+}
+
+/* Group buttons in one row */
+.button-group {
+    display: flex;
+    gap: 10px;   /* Spacing between buttons */
+    margin-top: 10px;
+}
+
+/* Console log styling */
+#console {
+    border: 1px solid #ccc;
+    padding: 10px;
+    height: 100px;
+    overflow-y: auto;
+    background-color: white;
+    font-family: monospace;
+}
+
+/* Location info styling */
+#location-info {
+    margin-bottom: 20px;
+}
+
+/* History list styling */
+#history-list {
+    list-style-type: none;
+    padding-left: 0;
+}
+
+#path-row-info {
+    margin-top: 20px;
+}
+
+/* Input styling */
+#location-name {
+    padding: 8px;
+    width: 100%;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
 }
