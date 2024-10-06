@@ -1,0 +1,30 @@
+<!-- Lead Time and Notification Form -->
+<form id="notification-form">
+    <label for="lead-time">Notify me:</label>
+    <select id="lead-time" name="lead-time">
+        <option value="5">5 minutes before</option>
+        <option value="10">10 minutes before</option>
+        <option value="30">30 minutes before</option>
+        <option value="60">1 hour before</option>
+    </select>
+
+    <br><br>
+
+    <label for="notification-method">Notification method:</label>
+    <select id="notification-method" name="notification-method">
+        <option value="email">Email</option>
+        <option value="sms">SMS</option>
+    </select>
+
+    <br><br>
+
+    <!-- Email or Phone input depending on method -->
+    <div id="contact-info"></div>
+
+    <br><br>
+
+    <button type="button" onclick="setNotification()">Set Notification</button>
+</form>
+
+<!-- Div to show the result -->
+<div id="notification-result"></div>
