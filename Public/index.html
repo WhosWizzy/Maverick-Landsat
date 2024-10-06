@@ -47,6 +47,20 @@
                 </div>			
                 <!-- Location info (grid data, etc.) -->
                 <div id="location-info"></div>
+				<!-- Cloud coverage threshold slider -->
+				<div id="cloud-coverage-section">
+					<label for="cloud-threshold">Cloud Coverage Threshold:</label>
+					<input type="range" id="cloud-threshold" min="0" max="100" value="15" oninput="updateThresholdLabel(this.value)">
+					<label for="startDate">Start Date:</label>
+					<input type="date" id="startDate" name="startDate">
+
+					<label for="endDate">End Date:</label>
+					<input type="date" id="endDate" name="endDate">
+
+					<button id="submitData">Check Cloud Coverage</button>
+					<span id="cloud-threshold-value">15%</span>
+				</div>
+				<div id="cloud-coverage"></div>
                 <!-- New section to predict and display overpass -->
 				<!-- Add a date input for the user to select a date -->
 				<label for="overpass-date">Select a date for the overpass prediction:</label>
@@ -80,7 +94,6 @@
     <script src="js/ui.js"></script>
     <script src="js/globals.js"></script>
 	<script src="js/landsatoverpass.js"></script>
-
 
     <script>
         // Function to handle tabs

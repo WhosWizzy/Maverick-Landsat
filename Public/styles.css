@@ -1,0 +1,204 @@
+/* Main container to hold all elements */
+#main-container {
+    display: grid;
+    grid-template-columns: 2fr 1fr;  /* More space for the map, 2/3 of the width for the map */
+    grid-template-rows: 1fr auto;    /* Grid rows, 1fr for map and log, auto for dynamic height */
+    gap: 10px;                        /* Gap between sections */
+    height: 100vh;                    /* Full viewport height */
+    padding: 10px;
+    box-sizing: border-box;           /* Ensure padding is included in total height/width */
+}
+
+/* Map container with increased height */
+#map-container {
+    grid-row: 1 / 2;                  /* Map container spans first row */
+    grid-column: 1;                   /* Map container in the first column */
+    border: 1px solid #ccc;
+    background-color: #f5f5f5;
+    height: 100%;                     /* Map will take full height */
+}
+
+#map {
+    width: 100%;
+    height: 100%;                     /* Make the map take the full container height */
+}
+
+/* Log container with auto height */
+#log-container {
+    grid-row: 2 / 3;                  /* Log container spans second row */
+    grid-column: 1;                   /* Log container in the first column */
+    background-color: #f9f9f9;
+    border: 1px solid #ccc;
+    overflow-y: auto;
+    padding: 10px;
+    max-height: 200px;                /* Set max height for log */
+    box-sizing: border-box;           /* Ensure padding is included in total height */
+}
+
+/* Info and save controls container (Right side) */
+#info-saves-container {
+    grid-row: 1 / 3;                  /* Spans both rows on the right */
+    grid-column: 2;                   /* Info container in the second column */
+    background-color: #f9f9f9;
+    border: 1px solid #ccc;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    box-sizing: border-box;           /* Ensure padding is included in total height */
+}
+
+/* History section */
+#history {
+    margin-top: 20px;
+}
+
+/* General button styles */
+#toggle-polygons, #save-data, #load-history, #clear-all-now, #delete-btn, #pin-btn, #view-path-btn, #predict-overpass-btn {
+    margin-top: 10px;
+    padding: 8px 15px;
+    background-color: #f0f0f0;
+    border: 1px solid #ccc;
+    cursor: pointer;
+    transition: background-color 0.3s ease;  /* Add hover transition effect */
+}
+
+/* Hover effect for buttons */
+#toggle-polygons:hover, #save-data:hover, #load-history:hover, #clear-all-now:hover, 
+#delete-btn:hover, #pin-btn:hover, #view-path-btn:hover, #predict-overpass-btn {
+    background-color: #e0e0e0;
+}
+
+/* Group buttons in one row */
+.button-group {
+    display: flex;
+    gap: 10px;   /* Spacing between buttons */
+    margin-top: 10px;
+    flex-wrap: wrap;  /* Wrap buttons on smaller screens */
+}
+
+/* Console log styling */
+#console {
+    border: 1px solid #ccc;
+    padding: 10px;
+    height: 100px;
+    overflow-y: auto;
+    background-color: white;
+    font-family: monospace;
+    box-sizing: border-box;           /* Ensure padding is included in total height */
+}
+
+/* Location info styling */
+#location-info {
+    margin-bottom: 20px;
+}
+
+/* Grid table styling */
+#grid-table {
+    width: 100%;                      /* Make sure the grid takes full width */
+    border-collapse: collapse;        /* No gaps between table cells */
+    text-align: center;
+}
+
+#grid-table td {
+    border: 1px solid #ccc;
+    padding: 10px;
+}
+
+/* History list styling */
+#history-list {
+    list-style-type: none;
+    padding-left: 0;
+}
+
+/* Path/Row info section */
+#path-row-info {
+    margin-top: 20px;
+}
+
+/* Input styling */
+#location-name {
+    padding: 8px;
+    width: 100%;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
+    box-sizing: border-box;           /* Ensure padding is included in total width */
+}
+
+/* Responsive design adjustments */
+@media screen and (max-width: 768px) {
+    #main-container {
+        grid-template-columns: 1fr;  /* Stack the map and info sections vertically on smaller screens */
+        grid-template-rows: auto;    /* Allow rows to auto-size */
+    }
+    
+    #info-saves-container {
+        grid-row: 2;                /* Place info section below the map on small screens */
+        grid-column: 1;             /* Full width for the info section */
+    }
+
+    #log-container {
+        grid-row: 3;                /* Log container follows info section */
+        grid-column: 1;             /* Full width for the log section */
+        max-height: 150px;          /* Adjust max height for logs on smaller screens */
+    }
+}
+
+/* Style the tab */
+.tab {
+    overflow: hidden;
+    border: 1px solid #ccc;
+    background-color: #f1f1f1;
+}
+
+/* Style the buttons inside the tab */
+.tab button {
+    background-color: inherit;
+    float: left;
+    border: none;
+    outline: none;
+    cursor: pointer;
+    padding: 14px 16px;
+    transition: 0.3s;
+    font-size: 17px;
+}
+
+/* Change background color of tab buttons on hover */
+.tab button:hover {
+    background-color: #ddd;
+}
+
+/* Create an active/current tab link class */
+.tab button.active {
+    background-color: #ccc;
+}
+
+/* Style the tab content */
+.tabcontent {
+	display: none;
+	padding: 6px 12px;
+	border: 1px solid #ccc;
+	border-top: none;
+    max-height: auto; /* Set the max height for the tab content */
+    overflow-y: auto;  /* Enable vertical scrolling */
+    padding: 10px;     /* Add some padding for aesthetics */
+    border: 1px solid #ccc; /* Optional: Add a border for better visibility */
+    background-color: #f9f9f9; /* Optional: Background color */
+}
+
+/* Style the meatball menu button */
+.meatball-button {
+    font-size: 24px;
+    border: none;
+    background-color: inherit;
+    cursor: pointer;
+}
+
+/* Menu content inside the meatball menu */
+.menu-content {
+    display: none;
+    background-color: #f9f9f9;
+    border: 1px solid #ccc;
+    padding: 10px;
+    margin-top: 10px;
+}

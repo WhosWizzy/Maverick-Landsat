@@ -1,23 +1,129 @@
-// Add event listener to the "Show Polygons" button
-document.getElementById('toggle-polygons').addEventListener('click', togglePolygons);
+// Initialize the map
+var map = L.map('map').setView([51.505, -0.09], 13);
 
-// Add event listener to save button
-document.getElementById('save-data').addEventListener('click', saveData);
+// Add OpenStreetMap tile layer
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+}).addTo(map);
 
-// Add event listener to load history button
-document.getElementById('load-history').addEventListener('click', loadHistory);
+// Global variables to store the selected location data
+let selectedData = [];
+let selectedLocations = []; // For selected history locations (checkbox)
+let parsedKmlLayers = [];
+let polygonsVisible = true;  // Track whether polygons are currently visible
 
-// Add event listener to clear all button
-document.getElementById('clear-all-now').addEventListener('click', clearAllLocations);
+// Custom logging function
+function logToConsole(message) {
+    const consoleBox = document.getElementById('console');
+    consoleBox.innerHTML += message + '<br>';
+    consoleBox.scrollTop = consoleBox.scrollHeight;
+}
 
-// Add event listener to delete selected locations button
-document.getElementById('delete-btn').addEventListener('click', deleteSelectedLocations);
+// Function to extract PATH and ROW from the description using regular expressions
+function extractPathRowFromDescription(description) {
+    const pathMatch = description.match(/<strong>PATH<\/strong>:\s*([\d.]+)/);
+    const rowMatch = description.match(/<strong>ROW<\/strong>:\s*([\d.]+)/);
 
-// Add event listener to pin selected locations button
-document.getElementById('pin-btn').addEventListener('click', () => pinSelectedLocations(1));  // Pin selected
+    const path = pathMatch ? parseFloat(pathMatch[1]) : null;
+    const row = rowMatch ? parseFloat(rowMatch[1]) : null;
 
-// Add event listener to view path/row button
-document.getElementById('view-path-btn').addEventListener('click', viewPathRow);  // View path/row for selected locations
+    return { path, row };
+}
+
+// Function to parse KML manually and extract polygons
+function parseKmlFile(kmlText) {
+    const parser = new DOMParser();
+    const kmlDoc = parser.parseFromString(kmlText, 'text/xml');
+    const placemarks = kmlDoc.getElementsByTagName('Placemark');
+    let parsedPolygons = 0;
+
+    // Iterate through each placemark and extract polygon data
+    for (let i = 0; i < placemarks.length; i++) {
+        const placemark = placemarks[i];
+        const polygon = placemark.getElementsByTagName('Polygon');
+
+        if (polygon.length > 0) {
+            parsedPolygons++;
+            const coordinatesElement = polygon[0].getElementsByTagName('coordinates')[0];
+            const coordinatesText = coordinatesElement.textContent.trim();
+            const latLngs = coordinatesText.split(' ').map(coord => {
+                const [lng, lat] = coord.split(',').map(Number);
+                return [lat, lng];  // LatLng for Leaflet
+            });
+
+            // Extract the description field to get PATH and ROW
+            const description = placemark.getElementsByTagName('description')[0]?.textContent || '';
+            const { path, row } = extractPathRowFromDescription(description);
+
+            // Create a Leaflet polygon and store it along with PATH/ROW
+            const leafletPolygon = L.polygon(latLngs, { color: 'blue' });
+            leafletPolygon.feature = {
+                properties: {
+                    PATH: path,
+                    ROW: row,
+                    description: description
+                }
+            };
+            parsedKmlLayers.push(leafletPolygon);
+        }
+    }
+
+    logToConsole(`Parsed ${parsedPolygons} polygons from KML manually.`);
+}
+
+// Function to load KML file and trigger parsing
+function loadKmlFile(kmlUrl) {
+    fetch(kmlUrl)
+        .then(response => response.text())
+        .then(kmlText => {
+            logToConsole('KML file loaded successfully.');
+            parseKmlFile(kmlText);
+
+            // Now add all polygons to the map for display
+            parsedKmlLayers.forEach(layer => {
+                layer.addTo(map);
+            });
+
+            logToConsole(`Added ${parsedKmlLayers.length} polygons to the map.`);
+        })
+        .catch(error => {
+            logToConsole('Error loading KML file.');
+            console.error('KML Fetch Error:', error);
+        });
+}
+
+// Handle map click event to capture lat/lng/path/row
+map.on('click', function(e) {
+    const lat = e.latlng.lat;
+    const lng = e.latlng.lng;
+    let foundMatch = false;
+
+    // Reset previous selected data
+    selectedData = [];
+
+    logToConsole(`Map clicked at: Latitude: ${lat}, Longitude: ${lng}`);
+    document.getElementById('location-info').innerHTML = `Selected Location: Latitude: ${lat}, Longitude: ${lng}`;
+
+    // Check if the clicked point is inside any of the polygons
+    parsedKmlLayers.forEach(function(layer, index) {
+        if (layer.getBounds().contains([lat, lng])) {
+            foundMatch = true;
+            const path = layer.feature.properties.PATH;
+            const row = layer.feature.properties.ROW;
+
+            logToConsole(`Point inside polygon ${index + 1} - Path: ${path}, Row: ${row}`);
+            document.getElementById('location-info').innerHTML += `<br>Inside polygon ${index + 1} - Path: ${path}, Row: ${row}`;
+
+            // Store each path/row combination as a separate object in selectedData array
+            selectedData.push({ latitude: lat, longitude: lng, path: path, row: row });
+        }
+    });
+
+    if (!foundMatch) {
+        logToConsole('No matching polygon found for this location.');
+        document.getElementById('location-info').innerHTML += '<br>No matching polygon found.';
+    }
+});
 
 // Function to toggle polygon visibility
 function togglePolygons() {
@@ -108,7 +214,7 @@ function loadHistory() {
             });
 
             // Show "Clear All" button only if history exists
-            document.getElementById('clear-all-now').style.display = data.length > 0 ? 'inline-block' : 'none';
+            document.getElementById('clear-all').style.display = data.length > 0 ? 'inline-block' : 'none';
         })
         .catch(error => {
             logToConsole(`Error loading history: ${error}`);
@@ -181,42 +287,4 @@ function pinSelectedLocations(pinStatus) {
         fetch('/pin-location', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ latitude: loc.latitude, longitude: loc.longitude, pinStatus })
-        })
-        .then(response => response.json())
-        .then(() => {
-            logToConsole(`Location (Lat: ${loc.latitude}, Lng: ${loc.longitude}) ${pinStatus ? 'pinned' : 'unpinned'}.`);
-            loadHistory();  // Reload history
-        })
-        .catch(error => {
-            logToConsole(`Error pinning/unpinning location: ${error}`);
-        });
-    });
-}
-
-// Function to clear all saved locations
-function clearAllLocations() {
-    fetch('/clear-all', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => response.json())
-    .then(() => {
-        logToConsole('All locations cleared.');
-        loadHistory();  // Reload history
-    })
-    .catch(error => {
-        logToConsole(`Error clearing all locations: ${error}`);
-    });
-}
-
-// Custom logging function
-function logToConsole(message) {
-    const consoleBox = document.getElementById('console');
-    consoleBox.innerHTML += message + '<br>';
-    consoleBox.scrollTop = consoleBox.scrollHeight;
-}
+                'Content-Type
