@@ -3,34 +3,166 @@ const axios = require('axios');
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
+//const cloudCoverageRoutes = require('./routes/cloudCoverage.js');  // Import the cloud coverage routes
+
 const app = express();
-const PORT = 3000;
+const port = 3000;
 
-// Middleware to parse JSON requests
-app.use(express.json());
 
-// Serve static files from the "public" directory
+const db = new sqlite3.Database(':memory:', (err) => {
+    if (err) {
+        return console.error('Error connecting to SQLite:', err.message);
+    }
+    console.log('Connected to SQLite database.');
+
+    db.run(`
+        CREATE TABLE IF NOT EXISTS coordinates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            latitude REAL,
+            longitude REAL,
+            path TEXT,
+            row TEXT,
+            name TEXT,
+            pinned INTEGER DEFAULT 0
+        )
+    `, (err) => {
+        if (err) {
+            console.error('Error creating table:', err.message);
+        } else {
+            console.log('Table for coordinates created.');
+        }
+    });
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Initialize SQLite database with name and pinned column
-let db = new sqlite3.Database('./coordinates.db', (err) => {
-    if (err) {
-        console.error('Error opening database: ' + err.message);
-    } else {
-        console.log('Connected to SQLite database.');
-        db.run(`
-            CREATE TABLE IF NOT EXISTS coordinates (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                latitude REAL,
-                longitude REAL,
-                path INTEGER,
-                row INTEGER,
-                name TEXT,
-                pinned INTEGER DEFAULT 0
-            )
-        `);
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+const USGS_API_URL = 'https://m2m.cr.usgs.gov/api/api/json/stable/scene-search';
+let API_KEY = '';  // Obtain your API key from login-token
+
+async function getApiKey() {
+    try {
+        const response = await axios.post('https://m2m.cr.usgs.gov/api/api/json/stable/login-token', {
+            username: 'USENAME-HERE', 
+            token: 'TOKEN-HERE' 
+        });
+
+        const apiKey = response.data.data;
+        console.log('API Key received:', apiKey); 
+        return apiKey; 
+    } catch (error) {
+        console.error('Error fetching API key:', error.response ? error.response.data : error.message);
+        throw new Error('Failed to retrieve API key');
+    }
+}
+
+const insidePolygon = (lat, lon, polygon) => {
+    const x = lon, y = lat;
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const xi = polygon[i][0], yi = polygon[i][1];
+        const xj = polygon[j][0], yj = polygon[j][1];
+
+        const intersect = ((yi > y) !== (yj > y)) &&
+            (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+    }
+    return inside;
+};
+
+const datasets = [
+    { name: 'landsat_ot_c2_l1', label: 'Landsat 8-9 OLI/TIRS C2 L1' },
+    { name: 'landsat_tm_c2_l1', label: 'Landsat 5 TM C2 L1' }  
+];
+
+app.post('/get-latest-cloud-coverage', async (req, res) => {
+    const { lat, lon, startDate, endDate, cloudCoverageThreshold } = req.body;
+
+    console.log('User clicked coordinates:', lat, lon);
+
+    try {
+        if (!API_KEY) {
+            API_KEY = await getApiKey();
+        }
+
+        const boundingBoxOffset = 2.0;  
+
+        let validResults = [];
+
+        for (const dataset of datasets) {
+            const payload = {
+                datasetName: dataset.name,
+                spatialFilter: {
+                    filterType: 'mbr',
+                    lowerLeft: {
+                        latitude: lat - boundingBoxOffset,
+                        longitude: lon - boundingBoxOffset,
+                    },
+                    upperRight: {
+                        latitude: lat + boundingBoxOffset,
+                        longitude: lon + boundingBoxOffset,
+                    },
+                },
+                temporalFilter: {
+                    startDate: "2018-01-01",  
+                    endDate: endDate,
+                },
+                maxCloudCover: "80",  
+            };
+
+            console.log(`Payload being sent to USGS API for ${dataset.label}:`, JSON.stringify(payload, null, 2));
+
+            const response = await axios.post(USGS_API_URL, payload, {
+                headers: {
+                    'X-Auth-Token': API_KEY
+                }
+            });
+
+            const results = response.data.data.results;
+
+            if (!results || results.length === 0) {
+                console.log(`No results found for dataset: ${dataset.label}`);
+                continue;  
+            }
+
+            const filteredResults = results.filter(scene => {
+                const spatialBounds = scene.spatialBounds?.coordinates[0];
+                return scene.cloudCover !== undefined && spatialBounds;  
+            });
+
+            validResults = [...validResults, ...filteredResults];  
+        }
+
+        if (validResults.length === 0) {
+            console.log('No scenes found matching the clicked location across all datasets.');
+            return res.status(404).json({ error: 'No scenes found matching the location across all datasets.' });
+        }
+
+        const sortedResults = validResults.sort((a, b) => new Date(b.temporalCoverage.startDate) - new Date(a.temporalCoverage.startDate));
+
+        return res.json({
+            scenes: sortedResults.map(scene => ({
+                sceneId: scene.sceneId || 'undefined',
+                acquisitionDate: scene.temporalCoverage?.startDate || 'undefined',
+                cloudCover: scene.cloudCover !== null && scene.cloudCover !== undefined ? scene.cloudCover : 'Unavailable',  
+                spatialBounds: scene.spatialBounds?.coordinates[0]  
+            }))
+        });
+
+    } catch (error) {
+        console.error('Error fetching cloud coverage:', error.response ? error.response.data : error.message);
+        return res.status(500).json({ error: 'Failed to retrieve cloud coverage data' });
     }
 });
+
+
+// Start the server
+app.listen(3000, () => {
+    console.log('Server is running on port 3000');
+});
+
 
 // API to save lat/lng/path/row data with a custom name to SQLite
 app.post('/save-data', (req, res) => {
@@ -112,12 +244,11 @@ app.post('/pin-location', (req, res) => {
     });
 });
 
-// Define the cache file location and cache duration (2 hours)
 const TLE_CACHE_FILE = path.join(__dirname, 'tle_cache.json');
-const TLE_CACHE_DURATION = 4 * 60 * 60 * 1000; // 2 hours in milliseconds
+const TLE_CACHE_DURATION = 4 * 60 * 60 * 1000; 
 const TLE_URL = 'https://celestrak.org/NORAD/elements/gp.php?CATNR=49260&FORMAT=tle';
 
-// Function to fetch TLE data from Celestrak
+// Got blocked which is why this was introduced
 async function fetchTLEData() {
     try {
         const response = await axios.get(TLE_URL);
@@ -131,7 +262,6 @@ async function fetchTLEData() {
     }
 }
 
-// Function to get cached TLE data from file
 function getCachedTLEData() {
     try {
         if (fs.existsSync(TLE_CACHE_FILE)) {
@@ -152,7 +282,6 @@ function getCachedTLEData() {
     }
 }
 
-// Function to save TLE data to cache file
 function cacheTLEData(tleData) {
     try {
         const now = Date.now();
@@ -168,26 +297,17 @@ function cacheTLEData(tleData) {
     }
 }
 
-// API to get TLE data (with file-based caching)
 app.get('/tle', async (req, res) => {
     try {
-        // First, try to get cached TLE data from the file
         const cachedData = getCachedTLEData();
         if (cachedData) {
-            return res.json(cachedData);  // Serve cached TLE data
+            return res.json(cachedData);
         }
-
-        // If no valid cache, fetch fresh data from Celestrak
         const tleData = await fetchTLEData();
-        cacheTLEData(tleData);  // Cache the fetched data to file
-        res.json(tleData);      // Serve the fresh data
+        cacheTLEData(tleData);  
+        res.json(tleData);     
     } catch (error) {
         console.error('Error processing /tle request:', error.message);
         res.status(500).json({ error: error.message });
     }
-});
-
-// Start the server
-app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
 });
