@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
     <link rel="stylesheet" href="styles.css"> <!-- Link to external CSS file -->
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/satellite.js/2.0.0/satellite.min.js"></script> <!-- Include satellite.js -->
 </head>
 <body>
     <!-- Main container that holds the map, log, and info/saves sections -->
@@ -21,24 +22,47 @@
             <div id="console"></div>
         </div>
 
-        <!-- Info and Saves section -->
+        <!-- Info and Saves section with tabs for Location Info and Saved Locations -->
         <div id="info-saves-container">
-            <div id="location-info"></div>
-
-            <!-- Input for naming location -->
-            <div class="controls">
-                <input type="text" id="location-name" placeholder="Enter a name for this location">
-                <!-- Buttons in one row -->
-                <div class="button-group">
-                    <button id="toggle-polygons">Show Polygons</button>
-                    <button id="save-data">Save Data</button>
-                    <button id="load-history">Load History</button>
-                    <button id="clear-all" style="display: none;">Clear All</button>
-                </div>
+            <!-- Tab links -->
+            <div class="tab">
+                <button class="tablinks" onclick="openTab(event, 'LocationInfo')">Location Info</button>
+                <button class="tablinks" onclick="openTab(event, 'SavedHistory')">Saved Locations (History)</button>
             </div>
-            
-            <div id="history">
+
+            <!-- Location Info Tab Content -->
+            <div id="LocationInfo" class="tabcontent">
+                <!-- Meatball menu for hiding controls -->
+                <div class="meatball-menu">
+                    <button class="meatball-button" onclick="toggleMenu()">&#x22EE; <!-- Meatball icon (vertical ellipsis) -->
+                    </button>
+                    <div id="menu-content" class="menu-content" style="display: none;">
+						<!-- Input for naming location -->
+						<div class="controls">
+							<input type="text" id="location-name" placeholder="Enter a name for this location">
+						</div>
+                        <button id="toggle-polygons">Show Polygons</button>
+                        <button id="save-data">Save Data</button>
+                    </div>
+                </div>			
+                <!-- Location info (grid data, etc.) -->
+                <div id="location-info"></div>
+                <!-- New section to predict and display overpass -->
+				<!-- Add a date input for the user to select a date -->
+				<label for="overpass-date">Select a date for the overpass prediction:</label>
+				<input type="date" id="overpass-date" name="overpass-date">
+				<button onclick="triggerOverpassPrediction()">Overpass Prediction</button>
+
+				<!-- Div to show the result -->
+				<div id="overpass-result"></div>
+                <div id="overpass-info"></div> <!-- Where overpass results will appear -->
+            </div>
+
+            <!-- Saved Locations Tab Content -->
+            <div id="SavedHistory" class="tabcontent">
                 <h3>Saved Locations (History)</h3>
+                <button id="load-history">Load History</button>
+				<button id="clear-all-now">Clear All</button>
                 <ul id="history-list"></ul>
                 <button id="delete-btn" style="display:none;">Delete Selected</button>
                 <button id="pin-btn" style="display:none;">Pin Selected</button>
@@ -48,7 +72,44 @@
         </div>
     </div>
 
-    <!-- Include external JavaScript file -->
-    <script src="script.js"></script>
+    <!-- Include external JavaScript files -->
+    <script src="js/map.js"></script>
+    <script src="js/grid.js"></script>
+    <script src="js/data.js"></script>
+    <script src="js/kml.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/globals.js"></script>
+	<script src="js/landsatoverpass.js"></script>
+
+
+    <script>
+        // Function to handle tabs
+        function openTab(evt, tabName) {
+            let i, tabcontent, tablinks;
+            tabcontent = document.getElementsByClassName("tabcontent");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+            tablinks = document.getElementsByClassName("tablinks");
+            for (i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(" active", "");
+            }
+            document.getElementById(tabName).style.display = "block";
+            evt.currentTarget.className += " active";
+        }
+
+        // Default tab open
+        document.getElementsByClassName('tablinks')[0].click();
+
+        // Function to toggle the meatball menu
+        function toggleMenu() {
+            let menu = document.getElementById('menu-content');
+            if (menu.style.display === "none") {
+                menu.style.display = "block";
+            } else {
+                menu.style.display = "none";
+            }
+        }
+    </script>
 </body>
 </html>
