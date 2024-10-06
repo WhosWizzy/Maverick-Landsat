@@ -1,3 +1,9 @@
+/**
+
+Deprecated
+
+**/
+
 var southWest = L.latLng(-90, -140);  
 var northEast = L.latLng(90, 140);   
 var bounds = L.latLngBounds(southWest, northEast);  
