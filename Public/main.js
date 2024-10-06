@@ -1,3 +1,10 @@
+/**
+
+DEPRECATED
+
+**/
+
+
 // Define the bounds for the map (adjust this to fit your area of interest)
 var southWest = L.latLng(-90, -140);  // Adjust these coordinates based on your KML data
 var northEast = L.latLng(90, 140);    // Adjust these coordinates based on your KML data
